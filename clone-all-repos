@@ -1,0 +1,62 @@
+#! /bin/bash
+
+for i in "$@"
+do
+case $i in
+    -c=*|--cohort=*)
+    GITHUB_ORG="${i#*=}"
+    shift # past argument=value
+    ;;
+    -p=*|--path=*)
+    DIR_PATH="${i#*=}"
+    shift # past argument=value
+    ;;
+    -h|--help|help)
+    cat <<-EOF
+    Clone all of the repos for a specific DBC cohort GitHub org
+
+    usage example:
+    ./clone_all_repos --cohort=nyc-cottontail-rabbits-2017 --path=/Users/username/Desktop/all-the-repos 
+
+    **PLEASE NOTE!**
+    -This script will only work for cohorts that have a config/challenges.json file in each of their phase guide repos. This feature was added to DBC phase guide repos around August 2016. Thus, if you were a student before August 2016, this script may not work for your cohort's repos. 
+
+    -This script requires SSH to be implemented for GitHub authentication:
+    https://help.github.com/articles/connecting-to-github-with-ssh/
+
+    -This script requires the "jq" library:
+    (e.g. for macOS: "brew install jq" for other OS go to https://stedolan.github.io/jq/)
+
+    -If you were a member of more than one cohort, you will need to run this script once for each cohort. Be sure to clone each cohort's repos into a different directory locally!
+EOF
+    exit 0
+    shift # past argument=value
+    ;;
+    *)
+          # unknown option
+    ;;
+esac
+done
+
+mkdir -p $DIR_PATH
+cd $DIR_PATH
+
+for i in {1..3}
+do
+    PHASE_GUIDE="phase-$i-guide"
+    git clone "git@github.com:$GITHUB_ORG/$PHASE_GUIDE.git"
+
+    CONFIG_FILE=$PHASE_GUIDE/config/challenges.json
+    WEEKS=( $(jq -r 'keys[]' $CONFIG_FILE) )
+    for week in ${WEEKS[@]}
+    do
+        CHALLENGES=( $(jq -r ".[\"$week\"][][]" $CONFIG_FILE) )
+        mkdir -p $week
+        cd $week
+        for challenge in ${CHALLENGES[@]}
+        do
+            git clone "git@github.com:$GITHUB_ORG/$challenge.git"
+        done
+        cd ..
+    done
+done
